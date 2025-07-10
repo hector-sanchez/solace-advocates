@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 
 interface Advocate {
   id: number;
@@ -16,10 +16,21 @@ interface Advocate {
 
 export default function Home() {
   const [advocates, setAdvocates] = useState<Advocate[]>([]);
-  const [filteredAdvocates, setFilteredAdvocates] = useState<Advocate[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
 	const [isLoading, setIsLoading] = useState<boolean>(true);
 	const [error, setError] = useState<string | null>(null);
+
+	// Debounced search term for better performance
+	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>("");
+
+	// Debounce effect for search term
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			setDebouncedSearchTerm(searchTerm);
+		}, 300); // 300ms debounce delay
+
+		return () => clearTimeout(timer);
+	}, [searchTerm]);
 
   useEffect(() => {
 		const fetchAdvocates = async () => {
@@ -35,7 +46,6 @@ export default function Home() {
 
 				const jsonResponse = await response.json();
 				setAdvocates(jsonResponse.data);
-				setFilteredAdvocates(jsonResponse.data);
 			} catch (err) {
 				setError(err instanceof Error ? err.message : "An error occurred");
 				console.error("Error fetching advocates:", err);
@@ -47,33 +57,46 @@ export default function Home() {
 		fetchAdvocates();
 	}, []);
 
-	const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const newSearchTerm = e.target.value;
-		setSearchTerm(newSearchTerm);
+	// Memoized search function for better performance
+	const filterAdvocates = useCallback((advocates: Advocate[], searchTerm: string): Advocate[] => {
+		if (!searchTerm.trim()) {
+			return advocates;
+		}
 
+		const lowerSearchTerm = searchTerm.toLowerCase();
 		console.log("filtering advocates...");
-		const filtered = advocates.filter((advocate) => {
+		
+		return advocates.filter((advocate) => {
+			const fullName = `${advocate.firstName} ${advocate.lastName}`.toLowerCase();
+			const cityLower = advocate.city.toLowerCase();
+			const degreeLower = advocate.degree.toLowerCase();
+			const specialtiesLower = advocate.specialties.map(s => s.toLowerCase());
+			const yearsString = advocate.yearsOfExperience.toString();
+
 			return (
-				advocate.firstName
-					.toLowerCase()
-					.includes(newSearchTerm.toLowerCase()) ||
-				advocate.lastName.toLowerCase().includes(newSearchTerm.toLowerCase()) ||
-				advocate.city.toLowerCase().includes(newSearchTerm.toLowerCase()) ||
-				advocate.degree.toLowerCase().includes(newSearchTerm.toLowerCase()) ||
-				advocate.specialties.some((specialty) =>
-					specialty.toLowerCase().includes(newSearchTerm.toLowerCase())
-				) ||
-				advocate.yearsOfExperience.toString().includes(newSearchTerm)
+				fullName.includes(lowerSearchTerm) ||
+				advocate.firstName.toLowerCase().includes(lowerSearchTerm) ||
+				advocate.lastName.toLowerCase().includes(lowerSearchTerm) ||
+				cityLower.includes(lowerSearchTerm) ||
+				degreeLower.includes(lowerSearchTerm) ||
+				specialtiesLower.some(specialty => specialty.includes(lowerSearchTerm)) ||
+				yearsString.includes(lowerSearchTerm)
 			);
 		});
+	}, []);
 
-		setFilteredAdvocates(filtered);
+	// Memoized filtered advocates based on debounced search term
+	const filteredAdvocates = useMemo(() => {
+		return filterAdvocates(advocates, debouncedSearchTerm);
+	}, [advocates, debouncedSearchTerm, filterAdvocates]);
+
+	const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		setSearchTerm(e.target.value);
 	};
 
   const onClick = () => {
 		console.log(advocates);
 		setSearchTerm("");
-		setFilteredAdvocates(advocates);
 	};
 
 	if (isLoading) {
@@ -105,6 +128,9 @@ export default function Home() {
 				<p>
 					Searching for: <span>{searchTerm}</span>
 				</p>
+				{debouncedSearchTerm !== searchTerm && searchTerm && (
+					<p style={{ fontSize: "0.9em", color: "#666" }}>Searching...</p>
+				)}
 				<input
 					style={{ border: "1px solid black" }}
 					value={searchTerm}
@@ -112,6 +138,9 @@ export default function Home() {
 					placeholder="Search advocates..."
 				/>
 				<button onClick={onClick}>Reset Search</button>
+				<p style={{ fontSize: "0.9em", color: "#555" }}>
+					Showing {filteredAdvocates.length} of {advocates.length} advocates
+				</p>
 			</div>
 			<br />
 			<br />
@@ -128,7 +157,7 @@ export default function Home() {
 					</tr>
 				</thead>
 				<tbody>
-					{filteredAdvocates.map((advocate) => {
+					{filteredAdvocates.map((advocate: Advocate) => {
 						return (
 							<tr key={advocate.id}>
 								<td>{advocate.firstName}</td>
