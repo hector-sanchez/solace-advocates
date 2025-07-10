@@ -11,7 +11,9 @@ export async function GET(request: Request) {
 		// Check if we have a real database connection
 		if (db) {
 			// Use real database with optimized search and indexing
-			console.log(`Using database search for: "${searchTerm}"`);
+			console.log(
+				`Using database search for: "${searchTerm || "all records"}"`
+			);
 
 			if (searchTerm && searchTerm.trim()) {
 				const searchPattern = `%${searchTerm.toLowerCase()}%`;
@@ -43,7 +45,9 @@ export async function GET(request: Request) {
 			}
 		} else {
 			// Fallback to mock data with server-side filtering
-			console.log(`Using mock data search for: "${searchTerm}"`);
+			console.log(
+				`Using mock data search for: "${searchTerm || "all records"}"`
+			);
 
 			let filteredData = advocateData;
 
@@ -80,14 +84,3 @@ export async function GET(request: Request) {
 		);
 	}
 }
-
-/*
-  Database indexes recommendations for production:
-  When using a real PostgreSQL database, create these indexes for optimal search performance:
-
-  1. CREATE INDEX idx_advocates_search ON advocates USING gin(to_tsvector('english', first_name || ' ' || last_name || ' ' || city || ' ' || degree));
-  2. CREATE INDEX idx_advocates_first_name ON advocates (first_name);
-  3. CREATE INDEX idx_advocates_last_name ON advocates (last_name);
-  4. CREATE INDEX idx_advocates_city ON advocates (city);
-  5. CREATE INDEX idx_advocates_specialties ON advocates USING gin(specialties);
-*/

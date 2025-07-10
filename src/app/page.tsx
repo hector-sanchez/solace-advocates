@@ -19,9 +19,15 @@ export default function Home() {
 	const [searchTerm, setSearchTerm] = useState<string>("");
 	const [isLoading, setIsLoading] = useState<boolean>(true);
 	const [error, setError] = useState<string | null>(null);
+	const [isMounted, setIsMounted] = useState<boolean>(false);
 
 	// Debounced search term for server-side search
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>("");
+
+	// Ensure component is mounted before rendering data
+	useEffect(() => {
+		setIsMounted(true);
+	}, []);
 
 	// Debounce effect for search term
 	useEffect(() => {
@@ -63,20 +69,24 @@ export default function Home() {
 		}
 	}, []);
 
-	// Initial fetch
+	// Initial fetch only after component is mounted
 	useEffect(() => {
-		fetchAdvocates();
-	}, [fetchAdvocates]);
+		if (isMounted) {
+			fetchAdvocates();
+		}
+	}, [fetchAdvocates, isMounted]);
 
-	// Search when debounced term changes
+	// Search when debounced term changes (only if mounted)
 	useEffect(() => {
+		if (!isMounted) return;
+
 		if (debouncedSearchTerm !== "") {
 			fetchAdvocates(debouncedSearchTerm);
 		} else if (debouncedSearchTerm === "" && searchTerm === "") {
 			// Reset to show all advocates when search is cleared
 			fetchAdvocates();
 		}
-	}, [debouncedSearchTerm, fetchAdvocates, searchTerm]);
+	}, [debouncedSearchTerm, fetchAdvocates, searchTerm, isMounted]);
 
 	const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setSearchTerm(e.target.value);
@@ -86,6 +96,15 @@ export default function Home() {
 		console.log(advocates);
 		setSearchTerm("");
 	};
+
+	if (!isMounted) {
+		return (
+			<main style={{ margin: "24px" }}>
+				<h1>Solace Advocates</h1>
+				<p>Loading...</p>
+			</main>
+		);
+	}
 
 	if (isLoading) {
 		return (
