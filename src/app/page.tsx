@@ -65,7 +65,7 @@ export default function Home() {
 
 		const lowerSearchTerm = searchTerm.toLowerCase();
 		console.log("filtering advocates...");
-		
+
 		return advocates.filter((advocate) => {
 			const fullName = `${advocate.firstName} ${advocate.lastName}`.toLowerCase();
 			const cityLower = advocate.city.toLowerCase();
