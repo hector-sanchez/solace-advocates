@@ -1,26 +1,26 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 interface Advocate {
-  id: number;
-  firstName: string;
-  lastName: string;
-  city: string;
-  degree: string;
-  specialties: string[];
-  yearsOfExperience: number;
-  phoneNumber: number;
-  createdAt?: string;
+	id: number;
+	firstName: string;
+	lastName: string;
+	city: string;
+	degree: string;
+	specialties: string[];
+	yearsOfExperience: number;
+	phoneNumber: number;
+	createdAt?: string;
 }
 
 export default function Home() {
-  const [advocates, setAdvocates] = useState<Advocate[]>([]);
-  const [searchTerm, setSearchTerm] = useState<string>("");
+	const [advocates, setAdvocates] = useState<Advocate[]>([]);
+	const [searchTerm, setSearchTerm] = useState<string>("");
 	const [isLoading, setIsLoading] = useState<boolean>(true);
 	const [error, setError] = useState<string | null>(null);
 
-	// Debounced search term for better performance
+	// Debounced search term for server-side search
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>("");
 
 	// Debounce effect for search term
@@ -32,69 +32,57 @@ export default function Home() {
 		return () => clearTimeout(timer);
 	}, [searchTerm]);
 
-  useEffect(() => {
-		const fetchAdvocates = async () => {
-			try {
-				setIsLoading(true);
-				setError(null);
-				console.log("fetching advocates...");
+	// Fetch advocates with server-side search
+	const fetchAdvocates = useCallback(async (search?: string) => {
+		try {
+			setIsLoading(true);
+			setError(null);
 
-				const response = await fetch("/api/advocates");
-				if (!response.ok) {
-					throw new Error(`Failed to fetch advocates: ${response.status}`);
-				}
+			const params = new URLSearchParams();
 
-				const jsonResponse = await response.json();
-				setAdvocates(jsonResponse.data);
-			} catch (err) {
-				setError(err instanceof Error ? err.message : "An error occurred");
-				console.error("Error fetching advocates:", err);
-			} finally {
-				setIsLoading(false);
+			if (search && search.trim()) {
+				params.append("search", search.trim());
 			}
-		};
 
-		fetchAdvocates();
-	}, []);
-
-	// Memoized search function for better performance
-	const filterAdvocates = useCallback((advocates: Advocate[], searchTerm: string): Advocate[] => {
-		if (!searchTerm.trim()) {
-			return advocates;
-		}
-
-		const lowerSearchTerm = searchTerm.toLowerCase();
-		console.log("filtering advocates...");
-
-		return advocates.filter((advocate) => {
-			const fullName = `${advocate.firstName} ${advocate.lastName}`.toLowerCase();
-			const cityLower = advocate.city.toLowerCase();
-			const degreeLower = advocate.degree.toLowerCase();
-			const specialtiesLower = advocate.specialties.map(s => s.toLowerCase());
-			const yearsString = advocate.yearsOfExperience.toString();
-
-			return (
-				fullName.includes(lowerSearchTerm) ||
-				advocate.firstName.toLowerCase().includes(lowerSearchTerm) ||
-				advocate.lastName.toLowerCase().includes(lowerSearchTerm) ||
-				cityLower.includes(lowerSearchTerm) ||
-				degreeLower.includes(lowerSearchTerm) ||
-				specialtiesLower.some(specialty => specialty.includes(lowerSearchTerm)) ||
-				yearsString.includes(lowerSearchTerm)
+			console.log(
+				`Fetching advocates: ${search ? `search="${search}"` : "no search"}`
 			);
-		});
+
+			const response = await fetch(`/api/advocates?${params}`);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch advocates: ${response.status}`);
+			}
+
+			const jsonResponse = await response.json();
+			setAdvocates(jsonResponse.data);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "An error occurred");
+			console.error("Error fetching advocates:", err);
+		} finally {
+			setIsLoading(false);
+		}
 	}, []);
 
-	// Memoized filtered advocates based on debounced search term
-	const filteredAdvocates = useMemo(() => {
-		return filterAdvocates(advocates, debouncedSearchTerm);
-	}, [advocates, debouncedSearchTerm, filterAdvocates]);
+	// Initial fetch
+	useEffect(() => {
+		fetchAdvocates();
+	}, [fetchAdvocates]);
+
+	// Search when debounced term changes
+	useEffect(() => {
+		if (debouncedSearchTerm !== "") {
+			fetchAdvocates(debouncedSearchTerm);
+		} else if (debouncedSearchTerm === "" && searchTerm === "") {
+			// Reset to show all advocates when search is cleared
+			fetchAdvocates();
+		}
+	}, [debouncedSearchTerm, fetchAdvocates, searchTerm]);
 
 	const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		setSearchTerm(e.target.value);
 	};
 
-  const onClick = () => {
+	const onClick = () => {
 		console.log(advocates);
 		setSearchTerm("");
 	};
@@ -139,7 +127,7 @@ export default function Home() {
 				/>
 				<button onClick={onClick}>Reset Search</button>
 				<p style={{ fontSize: "0.9em", color: "#555" }}>
-					Showing {filteredAdvocates.length} of {advocates.length} advocates
+					Showing {advocates.length} advocates
 				</p>
 			</div>
 			<br />
@@ -157,7 +145,7 @@ export default function Home() {
 					</tr>
 				</thead>
 				<tbody>
-					{filteredAdvocates.map((advocate: Advocate) => {
+					{advocates.map((advocate: Advocate) => {
 						return (
 							<tr key={advocate.id}>
 								<td>{advocate.firstName}</td>
