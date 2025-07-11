@@ -18,6 +18,7 @@ export default function Home() {
 	const [advocates, setAdvocates] = useState<Advocate[]>([]);
 	const [searchTerm, setSearchTerm] = useState<string>("");
 	const [isLoading, setIsLoading] = useState<boolean>(true);
+	const [isSearching, setIsSearching] = useState<boolean>(false);
 	const [error, setError] = useState<string | null>(null);
 	const [isMounted, setIsMounted] = useState<boolean>(false);
 	const [expandedSpecialties, setExpandedSpecialties] = useState<Set<number>>(
@@ -44,7 +45,12 @@ export default function Home() {
 	// Fetch advocates with server-side search
 	const fetchAdvocates = useCallback(async (search?: string) => {
 		try {
-			setIsLoading(true);
+			// Only show main loading for initial load, use searching state for search
+			if (!search) {
+				setIsLoading(true);
+			} else {
+				setIsSearching(true);
+			}
 			setError(null);
 
 			const params = new URLSearchParams();
@@ -68,7 +74,12 @@ export default function Home() {
 			setError(err instanceof Error ? err.message : "An error occurred");
 			console.error("Error fetching advocates:", err);
 		} finally {
-			setIsLoading(false);
+			// Clear appropriate loading state
+			if (!search) {
+				setIsLoading(false);
+			} else {
+				setIsSearching(false);
+			}
 		}
 	}, []);
 
@@ -261,7 +272,7 @@ export default function Home() {
 											</span>
 										</div>
 									)}
-									{debouncedSearchTerm !== searchTerm && searchTerm && (
+									{isSearching && searchTerm && (
 										<div className="flex items-center text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
 											<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
 											Searching...
